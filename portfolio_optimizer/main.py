@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import (QMainWindow,
                              QTabWidget,
                              QTableView,
                              QHeaderView)
+from PyQt5.QtChart import QChart, QChartView, QPieSeries, QPieSlice
 
 import portfolio
 import pandas as pd
@@ -29,9 +30,6 @@ class PandasModel(QtCore.QAbstractTableModel):
     def __init__(self, df=pd.DataFrame(), parent=None):
         QtCore.QAbstractTableModel.__init__(self, parent=parent)
         self._df = df.copy()
-
-    #def toDateFrame(self):
-    #    return self._df.copy()
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
         if role != QtCore.Qt.DisplayRole:
@@ -93,26 +91,17 @@ class Window(QMainWindow):
         generateButton = QPushButton("Generate")
         generateButton.clicked.connect(self.onGenerateButtonClick)
 
-        boldFont = QtGui.QFont()
-        boldFont.setBold(True)
-        resultsTitle = QLabel("RESULTS")
-        resultsTitle.setFont(boldFont)
-        sharpeAllocationTitle = QLabel("Max Sharpe Ratio Potfolio Allocation:")
-        sharpeAllocationTitle.setFont(boldFont)
-        self.sharpeAllocationLabel = QLabel()
-        volatilityAllocationTitle = QLabel("Minimum Volatility Potfolio Allocation:")
-        volatilityAllocationTitle.setFont(boldFont)
-        self.volatilityAllocationLabel = QLabel()
+        self.sharpeChartView = QChartView(self.createChart([], [], "Max Sharpe Ratio Potfolio Allocation"))
+        self.sharpeChartView.setRenderHint(QtGui.QPainter.Antialiasing)
+
+        self.volatilityChartView = QChartView(self.createChart([], [], "Minimum Volatility Potfolio Allocation"))
+        self.volatilityChartView.setRenderHint(QtGui.QPainter.Antialiasing)
 
         optionsLayout.addLayout(riskRateLayout)
         optionsLayout.addLayout(portfolioNumLayout)
         optionsLayout.addWidget(generateButton)
-        optionsLayout.addWidget(resultsTitle)
-        optionsLayout.addWidget(sharpeAllocationTitle)
-        optionsLayout.addWidget(self.sharpeAllocationLabel)
-        optionsLayout.addWidget(volatilityAllocationTitle)
-        optionsLayout.addWidget(self.volatilityAllocationLabel)
-        optionsLayout.addStretch(1)
+        optionsLayout.addWidget(self.sharpeChartView)
+        optionsLayout.addWidget(self.volatilityChartView)
 
         tabs = QTabWidget()
         self.tableView = QTableView()
@@ -129,8 +118,8 @@ class Window(QMainWindow):
         mptWidget = QWidget()
         mptLayout = QHBoxLayout()
         self._mptPlot = self.createPlot("Bullet", "Annualized Volatility", "Annualized Returns")
-        mptLayout.addLayout(optionsLayout, 20)
-        mptLayout.addWidget(self._mptPlot, 80)
+        mptLayout.addWidget(self._mptPlot, 50)
+        mptLayout.addLayout(optionsLayout, 50)
         mptWidget.setLayout(mptLayout)
 
         tabs.addTab(self.tableView, "Data")
@@ -162,6 +151,20 @@ class Window(QMainWindow):
         fileMenu.addAction(openFileAct)
         fileMenu.addAction(exitAct)
 
+    def createChart(self, names, values, title):
+        series = QPieSeries()
+        for name, value in zip(names, values):
+            series.append(name + " " + str(value) + "%", value)
+
+        chart = QChart()
+        chart.addSeries(series)
+        chart.setAnimationOptions(QChart.SeriesAnimations)
+        chart.setTitle(title)
+        chart.legend().setVisible(True)
+        series.setLabelsVisible()
+
+        return chart
+
     def createPlot(self, title, xlabel, ylabel):
         newPlot = pg.PlotWidget()
         newPlot.setBackground('w')
@@ -185,23 +188,51 @@ class Window(QMainWindow):
     def onGenerateButtonClick(self):
         risk_rate = float(self.riskRateLineEdit.text())
         num_portfolios = int(self.portfolioNumLineEdit.text())
-        weights, returns, volatilities, sharps_ratios = portfolio.generate_random_portfolios(self._data, risk_rate, num_portfolios)
 
-        max_sharpe_ratio_index = np.argmax(sharps_ratios)
-        min_volatility_index = np.argmin(volatilities)
+        mean_returns = portfolio.calculate_mean_returns(self._data, portfolio.DAYS)
+        cov_matrix = portfolio.calculate_cov_matrix(self._data, portfolio.DAYS)
+        weights, returns, volatilities, sharps_ratios = portfolio.generate_random_portfolios(mean_returns,
+                                                                                             cov_matrix,
+                                                                                             risk_rate,
+                                                                                             num_portfolios)
 
+        #max_sharpe_ratio_index = np.argmax(sharps_ratios)
+        #min_volatility_index = np.argmin(volatilities)
 
-        max_sharpe_ratio_allocation = pd.DataFrame(data=np.round(weights[max_sharpe_ratio_index, :] * 100, 2),
+        max_sharpe = portfolio.max_sharpe_ratio(mean_returns, cov_matrix, risk_rate)
+        min_volatility = portfolio.min_volatility(mean_returns, cov_matrix)
+
+        sharpe_vol = portfolio.calculate_volatility(max_sharpe.x, cov_matrix)
+        sharpe_ret = portfolio.calculate_returns(max_sharpe.x, mean_returns)
+
+        volatility_vol = portfolio.calculate_volatility(min_volatility.x, cov_matrix)
+        volatility_ret = portfolio.calculate_returns(min_volatility.x, mean_returns)
+
+        frontier_y = np.linspace(-80, 80, 100)
+        efficient_portfolios = portfolio.calculate_efficient_frontier(mean_returns, cov_matrix, frontier_y)
+        frontier_x = [p['fun'] for p in efficient_portfolios]
+
+        max_sharpe_ratio_allocation = pd.DataFrame(data=np.round(max_sharpe.x * 100, 2),
                                                   index=self._data.columns).T
-        min_volatility_allocation = pd.DataFrame(data=np.round(weights[min_volatility_index, :] * 100, 2),
+        min_volatility_allocation = pd.DataFrame(data=np.round(min_volatility.x * 100, 2),
                                                  index=self._data.columns).T
 
-        self.sharpeAllocationLabel.setText(max_sharpe_ratio_allocation.to_string(index=False))
-        self.sharpeAllocationLabel.adjustSize()
-        self.volatilityAllocationLabel.setText(min_volatility_allocation.to_string(index=False))
-        self.volatilityAllocationLabel.adjustSize()
 
-        self.plotBullet(volatilities, returns, min_volatility_index, max_sharpe_ratio_index)
+        newSharpeChart = self.createChart(max_sharpe_ratio_allocation.columns.values,
+                                    max_sharpe_ratio_allocation.to_numpy()[0].tolist(),
+                                    "Max Sharpe Ratio Potfolio Allocation")
+        self.sharpeChartView.setChart(newSharpeChart)
+
+        newVolatilityChart = self.createChart(min_volatility_allocation.columns.values,
+                                    min_volatility_allocation.to_numpy()[0].tolist(),
+                                    "Minimum Volatility Potfolio Allocation")
+        self.volatilityChartView.setChart(newVolatilityChart)
+
+        self.plotBullet(volatilities,
+                        returns,
+                        (sharpe_vol, sharpe_ret),
+                        (volatility_vol, volatility_ret),
+                        (frontier_x, frontier_y))
 
     def showStockData(self):
         model = PandasModel(self._data)
@@ -220,18 +251,21 @@ class Window(QMainWindow):
             self._dailyReturnsPlot.plot(date_time_range, changes[c].fillna(0), name=c,
                                   pen=pg.mkPen(color=tuple(np.random.choice(range(256), size=3)), width=5))
 
-    def plotBullet(self, volatilities, returns, min_volatility_index, max_sharp_ratio_index):
+    def plotBullet(self, volatilities, returns, min_volatility_point, max_sharp_ratio_point, efficient_frontier):
         self._mptPlot.clear()
         self._mptPlot.plot(volatilities, returns, pen=None, symbol='o', name="Random Portfolios",
                            symbolPen=pg.mkPen(color=(0, 0, 255, 100), width=0),
                            symbolBrush=pg.mkBrush(color=(0, 0, 255, 100)))
-        self._mptPlot.plot([volatilities[min_volatility_index]], [returns[min_volatility_index]],
+        self._mptPlot.plot([min_volatility_point[0]], [min_volatility_point[1]],
                           name="Minimum Volatility", pen=None, symbol='star', symbolPen=pg.mkPen(color=(255, 0, 0, 255), width=0),
                            symbolBrush=pg.mkBrush(color=(255, 0, 0, 255)), symbolSize=20)
 
-        self._mptPlot.plot([volatilities[max_sharp_ratio_index]], [returns[max_sharp_ratio_index]],
+        self._mptPlot.plot([max_sharp_ratio_point[0]], [max_sharp_ratio_point[0]],
                           name="Max Sharpe Ratio", pen=None, symbol='star', symbolPen=pg.mkPen(color=(0, 255, 0, 255), width=0),
                           symbolBrush=pg.mkBrush(color=(0, 255, 0, 255)), symbolSize=20)
+
+        self._mptPlot.plot(efficient_frontier[0], efficient_frontier[1],
+                           pen=pg.mkPen(color=(0, 0, 0), width=5))
 
 def main():
     app = QApplication(sys.argv)
