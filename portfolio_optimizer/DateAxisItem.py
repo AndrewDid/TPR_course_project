@@ -1,3 +1,7 @@
+
+#Source:
+#https://github.com/taurus-org/taurus_pyqtgraph/blob/master/taurus_pyqtgraph/dateaxisitem.py
+
 import numpy
 from pyqtgraph import AxisItem
 from datetime import datetime, timedelta
@@ -5,7 +9,6 @@ from time import mktime
 
 class DateAxisItem(AxisItem):
     """
-    https://github.com/taurus-org/taurus_pyqtgraph/blob/master/taurus_pyqtgraph/dateaxisitem.py
     A tool that provides a date-time aware axis. It is implemented as an
     AxisItem that interpretes positions as unix timestamps (i.e. seconds
     since 1970).

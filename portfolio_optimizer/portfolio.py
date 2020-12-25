@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import scipy.optimize as sco
 
 DAYS = 252
-#RISK_FREE_RATE = 0.0178
 
 
 def calculate_cov_matrix(data, days):
@@ -57,7 +56,6 @@ def neg_sharpe_ratio(weights, mean_returns, cov_matrix, risk_free_rate):
 
 def max_sharpe_ratio(mean_returns, cov_matrix, risk_free_rate):
     num_assets = len(mean_returns)
-    print("NUM ASSETS:", num_assets)
     args = (mean_returns, cov_matrix, risk_free_rate)
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     bound = (0.0, 1.0)
@@ -80,7 +78,7 @@ def min_volatility(mean_returns, cov_matrix):
 
 def efficient_return(mean_returns, cov_matrix, target):
     num_assets = len(mean_returns)
-    args = (cov_matrix)
+    args = (cov_matrix,)
 
     def portfolio_return(weights):
         return calculate_returns(weights, mean_returns)

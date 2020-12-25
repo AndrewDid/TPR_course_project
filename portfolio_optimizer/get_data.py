@@ -17,10 +17,11 @@ def USD_to_currency_rate(currency):
       return response.json()['rates'][currency]
 
 
-assets =  ["SNP", "RDSA.AS", "2222.SR", "BP", "XOM"]
-currencies = ['USD', 'EUR', 'SAR', 'USD', 'USD']
-
-stockStartDate = '2020-01-01'
+assets =  ["SNP", "RDSA.AS", "ROSN.ME", "BP", "XOM"]
+currencies = ['USD', 'EUR', 'RUB', 'USD', 'USD']
+#assets = ['AAPL', 'AMZN', 'FB', 'GOOGL']
+#currencies = ['USD', 'USD', 'USD', 'USD']
+stockStartDate = '2013-01-01'
 today = datetime.today().strftime('%Y-%m-%d')
 
 df = pd.DataFrame()
@@ -30,5 +31,5 @@ for stock, currency in zip(assets, currencies):
    df[stock] = df[stock] / USD_to_currency_rate(currency)
    
 df.fillna(df.mean(), inplace=True)
-df.to_csv("stonks.csv")
+df.to_csv("stonks_energy.csv")
 
