@@ -4,7 +4,7 @@ from datetime import datetime
 from pandas_datareader import data as web
 
 #SNP - China Petroleum & Chemical Corporation (USD)
-#RDSA.AS - Royal Dutch Shell (EUR)
+#ROSN.ME Rosneft (RUB)
 #2222.SR - Saudi Arabian Oil (SAR)
 #BP - British Petroleum (USD)
 #XOM - Exxon Mobil Corporation (USD)

@@ -10,8 +10,8 @@ def calculate_cov_matrix(data, days):
     return data.pct_change().cov().to_numpy() * days
 
 
-def calculate_mean_returns(data, days):
-    return data.pct_change().mean() * days
+def calculate_mean_returns(data):
+    return data.pct_change().mean()
 
 
 def calculate_returns(weights, mean_return):
@@ -105,7 +105,7 @@ def get_data(path):
 
 if __name__ == '__main__':
     df = pd.read_csv("../stonks.csv", index_col=0)
-    mean_returns = calculate_mean_returns(df, DAYS)
+    mean_returns = calculate_mean_returns(df)
     cov_matrix = calculate_cov_matrix(df, DAYS)
 
     weights, returns, volatilities, sharps_ratios = generate_random_portfolios(mean_returns, cov_matrix, 0.0178, 100000)

@@ -1,6 +1,7 @@
-https://www.investopedia.com/terms/p/portfoliomanagement.asp
+Sources that were used to create project:
 
-https://towardsdatascience.com/efficient-frontier-portfolio-optimisation-in-python-e7844051e7f
+https://towardsdatascience.com/efficient-frontier-portfolio-optimisation-in-python-e7844051e7f 
+
 
 https://medium.com/python-data/effient-frontier-in-python-34b0c3043314
 

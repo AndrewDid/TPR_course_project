@@ -97,7 +97,13 @@ class Window(QMainWindow):
         generateButton = QPushButton("Generate")
         generateButton.clicked.connect(self.onGenerateButtonClick)
         buttonLayout.addWidget(generateButton)
-        buttonLayout.addStretch(1)
+        buttonLayout.addStretch(1)        
+
+        randomMaxSharpeRatioLayout, self.randomMaxSharpeRatioLabel = self.createParameterLayout("Max Sharpe Ratio (from random portfolio): ")
+        randomMinVolatilityLayout, self.randomMinVolatilityLabel = self.createParameterLayout("Min Volatility (from random portfolio): ")
+        optimizedMaxSharpeRatioLayout, self.optimizedMaxSharpeRatioLabel = self.createParameterLayout("Max Sharpe Ratio (optimized): ")
+        optimizedMinVolatilityLayout, self.optimizedMinVolatilityLabel = self.createParameterLayout("Min Volatility (optimized): ")
+        
 
         self.sharpeChartView = QChartView(self.createChart([], [], "Max Sharpe Ratio Potfolio Allocation"))
         self.sharpeChartView.setRenderHint(QtGui.QPainter.Antialiasing)
@@ -105,11 +111,15 @@ class Window(QMainWindow):
         self.volatilityChartView = QChartView(self.createChart([], [], "Minimum Volatility Potfolio Allocation"))
         self.volatilityChartView.setRenderHint(QtGui.QPainter.Antialiasing)
 
-
+        
         optionsLayout.addLayout(riskRateLayout)
         optionsLayout.addLayout(portfolioNumLayout)
         optionsLayout.addLayout(buttonLayout)
+        optionsLayout.addLayout(randomMaxSharpeRatioLayout)
+        optionsLayout.addLayout(optimizedMaxSharpeRatioLayout)
         optionsLayout.addWidget(self.sharpeChartView)
+        optionsLayout.addLayout(randomMinVolatilityLayout)
+        optionsLayout.addLayout(optimizedMinVolatilityLayout)
         optionsLayout.addWidget(self.volatilityChartView)
 
         tabs = QTabWidget()
@@ -120,7 +130,7 @@ class Window(QMainWindow):
         axis = DateAxisItem(orientation='bottom')
         axis.attachToPlotItem(self._stocksPlot.getPlotItem())
 
-        self._dailyReturnsPlot = self.createPlot("Daily returns", "Date", "Price in $")
+        self._dailyReturnsPlot = self.createPlot("Daily returns", "Date", "Daily returns")
         axis = DateAxisItem(orientation='bottom')
         axis.attachToPlotItem(self._dailyReturnsPlot.getPlotItem())
 
@@ -183,6 +193,16 @@ class Window(QMainWindow):
         newPlot.setLabel("left", ylabel)
         return newPlot
 
+    def createParameterLayout(self, text):
+        parameterText = QLabel(text)
+        parameterLabel = QLabel("")
+        parameterLayout = QHBoxLayout()
+        parameterLayout.addStretch(1)
+        parameterLayout.addWidget(parameterText)
+        parameterLayout.addWidget(parameterLabel)
+        parameterLayout.addStretch(1)
+        return parameterLayout, parameterLabel
+
     def onOpenFileMenuClick(self):
         file_dialog = QFileDialog(self)
         file_dialog.setNameFilter("Data files (*.csv)")
@@ -197,7 +217,7 @@ class Window(QMainWindow):
         risk_rate = float(self.riskRateLineEdit.text())
         num_portfolios = int(self.portfolioNumLineEdit.text())
 
-        mean_returns = portfolio.calculate_mean_returns(self._data, portfolio.DAYS)
+        mean_returns = portfolio.calculate_mean_returns(self._data)
         cov_matrix = portfolio.calculate_cov_matrix(self._data, portfolio.DAYS)
         weights, returns, volatilities, sharps_ratios = portfolio.generate_random_portfolios(mean_returns,
                                                                                              cov_matrix,
@@ -208,20 +228,25 @@ class Window(QMainWindow):
         random_min_volatility_x = volatilities[random_min_volatility_index]
         random_min_volatility_y = returns[random_min_volatility_index]
         random_min_volatility_point = (random_min_volatility_x, random_min_volatility_y)
+        self.randomMinVolatilityLabel.setText("return - " + str(round(random_min_volatility_y, 2)) + ", volatility - " + str(round(random_min_volatility_x, 2)))
+
         
         random_max_sharpe_ratio_index = np.argmax(sharps_ratios)
         random_max_sharpe_ratio_x = volatilities[random_max_sharpe_ratio_index]
         random_max_sharpe_ratio_y = returns[random_max_sharpe_ratio_index]
         random_max_sharpe_point = (random_max_sharpe_ratio_x, random_max_sharpe_ratio_y)
+        self.randomMaxSharpeRatioLabel.setText("return - " + str(round(random_max_sharpe_ratio_y, 2)) + ", volatility - " + str(round(random_max_sharpe_ratio_x, 2)))
 
         max_sharpe = portfolio.max_sharpe_ratio(mean_returns, cov_matrix, risk_rate)
         min_volatility = portfolio.min_volatility(mean_returns, cov_matrix)
 
         sharpe_vol = portfolio.calculate_volatility(max_sharpe.x, cov_matrix)
         sharpe_ret = portfolio.calculate_returns(max_sharpe.x, mean_returns)
+        self.optimizedMaxSharpeRatioLabel.setText("return - " + str(round(sharpe_ret, 2)) + ", volatility - " + str(round(sharpe_vol, 2)))
 
         volatility_vol = portfolio.calculate_volatility(min_volatility.x, cov_matrix)
         volatility_ret = portfolio.calculate_returns(min_volatility.x, mean_returns)
+        self.optimizedMinVolatilityLabel.setText("return - " + str(round(volatility_ret, 2)) + ", volatility - " + str(round(volatility_vol, 2)))
 
         frontier_y = np.linspace(sharpe_ret, volatility_ret, 100)
         efficient_portfolios = portfolio.calculate_efficient_frontier(mean_returns, cov_matrix, frontier_y)
